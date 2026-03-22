@@ -1,1 +1,1 @@
-An experimentation and learning the patterns of AI/ML.
+Experimentation and learning the patterns of AI/ML.
