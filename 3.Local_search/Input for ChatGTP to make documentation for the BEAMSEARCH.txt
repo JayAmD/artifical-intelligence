@@ -1,0 +1,215 @@
+Can you write a technical documentation for my algorithm, if I give you the source code?
+========================================================================================
+
+
+
+
+The Python algorithm is a local search algorithm for coloring a graph(nodes and edges between them) with the given number of colors so that any 2 nodes connected by edge have different color.
+The colors of the nodes are represented as a numbers in the arrays in the self.state, self.surroundingState. For example one array in self.state represents one way to color the grapth acording to specifications.
+It is based on the Hill-climbing method with Beam search. I also use a mechanism called "low difference" that uses Random walk if the Hill-climbing seems to be stuck in a local optimum.
+Also there is a unused method Simulated aneealing, but because its performance was not great, I comented the function taht would add "tempeture"(chance to color random nodes).
+
+I would like you to document all of the methods and any interesting features they use or are asociated with. The rest of the code you can document as you see fit.
+
+The algorithm is a class, to start the algorithm you to 2 steps:
+1. initiate the class. Example: graph = GraphColoring()
+2. run the algorithm. Input is G-graph to be colored, colors-number of colors to color the algorithm with, maxSteps-to stop the search if this number is reached, seed(default = 0)-optional argument seed used in the numpy random generator. Example: graph.color(G, 6, 5000)
+
+Description of functions in the class GraphColoring:
+.color - used to start the local search algorithm
+.run - intended not to be called by the user, only by .color function. Runs local search in cycles and prepares variables and tasks bettween cycles.
+.calculateSurrs - intended not to be called by the user, only by .run function. Prepares new surrounding states using Hill-climbing
+.getRating - intended not to be called by the user, only by .run function. Rates surrounding states by the number of collisions(2 connected nodes have the same color) in the graph colored with colors represented by numbers in the arrays surrounding states.
+.plot - intended to be called by the user or bu another function. Unused currently, draws the graph with colored nodes.
+.show - intended to be called by the user or bu another function. Shows the user whether the graph can be colored by the number of colors by this algorithm or not. Show other information.
+.linPlot - intended to be called by the user or bu another function. Plots the progress of number of collisions, temperature(chance to use random walk).
+
+Thank you in advance.
+
+Output of the algorithm is the return of graph.color(G, 6, 5000): -1, self.solved-True or False depending if the graph can be colored by the number of colors, self.iterations-number of iterations pased
+
+The code:
+
+
+import networkx as nx
+import numpy as np
+import matplotlib.pyplot as plt
+import math
+
+
+# Next choose graph
+# --
+# In[129]:
+
+
+G = nx.Graph()
+
+
+def readdimacs(filename):
+
+    file = open(filename, 'r')
+    lines = file.readlines()
+    
+    Gd = nx.Graph()
+
+    for line in lines:
+        if line[0] == "e":
+            vs = [int(s) for s in line.split() if s.isdigit()]
+            Gd.add_edge(vs[0]-1, vs[1]-1)
+    return Gd
+
+G = readdimacs('C:/Users/pavel/Artifical_intelligence/3.Local_search/dsjc125.9.col')  
+
+# Init Coloring
+# --
+
+# In[130]:
+
+
+class GraphColoring:
+    def color(self, G, colors, maxSteps, seed = 0):
+        self.seed = seed
+        self.rng = np.random.default_rng(self.seed)
+        self.G = G
+        self.maxSteps = maxSteps
+        self.colors = colors
+        self.len = self.G.number_of_nodes()
+        
+        # beam search
+        self.nStates = 20
+        self.nSurroundings = 2
+        self.state = self.rng.integers(0,self.colors,(self.nStates, self.len), dtype=int)
+        self.surroundingState = np.zeros((self.nStates*self.nSurroundings, self.len), dtype=int)
+        self.rating = np.zeros(self.nStates*self.nSurroundings, dtype=int) # number of collisions
+        self.collisionsLog = np.zeros(maxSteps+1, dtype=int)
+        
+        # simulated annealing
+        self.tempBase = 2.7
+        self.temperature = 0
+        self.temperatureLog = np.zeros(maxSteps+1, dtype=float)
+        
+        # low difference
+        self.threshold = 0.95
+        self.addHeat = 0.02
+        self.heatMultiplier = 1
+        self.nLastCalls = 10
+        self.lastColls = np.zeros(self.nLastCalls, dtype=int)
+
+        self.iterations = 0
+        self.solved = self.run()
+        return -1, self.solved, self.iterations
+    
+    
+    def run(self): 
+        print('Started a run with', self.colors, 'colors.')
+        for step in np.arange(self.maxSteps):
+            
+            # temperature
+            self.temperature = 0
+            # heat from simulated annealing
+            #self.temperature = self.tempBase**(-self.iterations) 
+            
+            # heat from low differance in between runs
+            maxLastColls = np.max(self.lastColls)
+            minLastColls = np.min(self.lastColls)
+            if minLastColls / maxLastColls > self.threshold:
+                print('Adding heat')
+                self.temperature += self.addHeat * self.heatMultiplier
+                self.heatMultiplier +=1
+            else:
+                self.heatMultiplier = 1
+
+
+            # prepare surr
+            for i in range(self.nStates):
+                for j in range(self.nSurroundings):
+                    self.surroundingState[self.nSurroundings*i + j] = np.copy(self.state[i])
+                    # Simulated annealing
+                    # color some nodes random color, how many nodes depend on the temperature
+                    for n in range(self.len):
+                        if self.rng.random() < self.temperature:
+                            self.surroundingState[self.nSurroundings*i + j, n] = self.rng.integers(0,self.colors)
+                    
+            self.calculateSurrs()
+            self.iterations +=1
+            
+            # get rating
+            for i in range(self.nStates * self.nSurroundings):
+                self.rating[i] = self.getRating(self.G, self.surroundingState[i])
+
+            sortedIdx = np.argsort(self.rating)
+
+            # log collisions & temp
+            self.collisionsLog[self.iterations] = self.rating[sortedIdx[0]]
+            self.temperatureLog[self.iterations] = self.temperature
+            
+            # log last n colls 
+            self.lastColls[self.iterations%self.nLastCalls] = self.rating[sortedIdx[0]]
+
+            print('nCols:',self.colors, 'Iter:', self.iterations, 'Temperature:', round(self.temperature, 3), 'Collisions:', self.rating[sortedIdx[0]])
+
+            # return if graph is correctlly colored
+            if self.rating[sortedIdx[0]] == 0:
+                return True
+          
+            # use best surrs as states for the next run
+            for i in range(self.nStates):
+                self.state[i] = np.copy(self.surroundingState[sortedIdx[i]])
+        
+        return False
+        
+    
+    def calculateSurrs(self):
+        colOccurrence = np.zeros(self.colors, dtype=int)
+
+        for i in range(self.nStates):
+            for j in range(self.nSurroundings):
+                           
+                # iterate nodes in random order
+                for idx in self.rng.permutation(self.len):
+                    
+                    # per algorithm
+                    colOccurrence.fill(0)
+                    for n in self.G.neighbors(idx):
+                        colOccurrence[self.surroundingState[i, n]] +=1
+                    minCols = np.where(colOccurrence == colOccurrence.min())
+                    newCol = self.rng.choice(minCols[0], 1)
+                    self.surroundingState[self.nSurroundings*i + j, idx] = newCol  
+
+
+    def getRating(self, G, array):
+            collisions = 0
+            
+            for i in range(len(array)):
+                for j in G.neighbors(i):
+                    if i < j:
+                        if array[i] == array[j]:
+                            collisions +=1
+            return collisions
+        
+    def plot(self, G, cols): #Draws graphs on top of each other
+        k = np.max(cols)
+        symbols = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F']
+        colmap = ["#"+''.join(self.rng.choice(symbols, 6)) for i in range(k+1)]
+
+        colors = [colmap[c] for c in cols]
+
+        nx.draw(G, node_color=colors, with_labels=True)
+    def show(self):
+        print('Solved:',self.solved,', Iterations:',self.iterations, 'Difference progress:')
+        self.linPlot()
+        #self.plot(self.G,self.nodes)
+    def linPlot(self):
+        fig, ax = plt.subplots()
+
+        #ax.plot([i+1 for i in range(self.iterations)], [0 for i in range(self.iterations)], label='Goal of 0 colls')
+        ax.plot([i+1 for i in range(self.iterations)], self.temperatureLog[1:self.iterations+1]*100, label='Temperature')
+        ax.plot([i+1 for i in range(self.iterations)], self.collisionsLog[1:self.iterations+1], label= 'Collisons')
+        ax.legend()
+========================================================================================
+
+
+
+Please also provide me with document serving as a documentaions of the local search methods, the inner workings of the algorithm, the uses if interesting ideas, for example: "self.temperature += self.addHeat * self.heatMultiplier" -adding more random chance for random walk; another example: "for idx in self.rng.permutation(self.len):" -coloring the graph in random order of nodes. The document will be used so that I can recall the inner workings of the algorithm in few month from now(I will forget how I wrote the algorith by that time).
+
+You are of great help.

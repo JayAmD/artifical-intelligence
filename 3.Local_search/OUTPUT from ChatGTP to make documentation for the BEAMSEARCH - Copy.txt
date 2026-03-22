@@ -1,0 +1,39 @@
+# GraphColoring Algorithm Inner Workings Documentation
+
+This documentation aims to provide an in-depth understanding of the inner workings of the GraphColoring algorithm, including the local search methods, key mechanisms, and interesting ideas implemented in the code.
+
+## Local Search Methods
+
+### Hill-Climbing Method
+
+The core of the algorithm is based on the Hill-Climbing method, a local search algorithm that continuously moves towards a better solution by making small incremental changes. In the context of graph coloring, Hill-Climbing is used to explore neighboring states and find colorings with fewer collisions.
+
+### Beam Search
+
+To enhance the exploration of the solution space, the algorithm employs Beam Search. This technique involves maintaining a set of promising candidate solutions (states) and focuses the search on these candidates. The `nStates` parameter controls the size of the beam.
+
+### Random Walk (Low Difference Mechanism)
+
+The algorithm incorporates a "low difference" mechanism that introduces randomness to the search process when stuck in a local optimum. The `self.threshold`, `self.addHeat`, and `self.heatMultiplier` parameters govern the decision to add more randomness, increasing the likelihood of exploring different solutions.
+
+### Simulated Annealing (Unused)
+
+Although not currently in use, the algorithm contains a Simulated Annealing method. Simulated Annealing introduces controlled randomness to escape local optima by occasionally accepting worse solutions based on a temperature parameter. This feature has been commented out due to performance concerns.
+
+## Interesting Ideas and Mechanisms
+
+### Temperature Adjustment
+
+The line `self.temperature += self.addHeat * self.heatMultiplier` dynamically adjusts the temperature during the algorithm's execution. This mechanism introduces more randomness as the algorithm progresses, potentially helping to escape local optima.
+
+### Random Node Coloring Order
+
+The loop `for idx in self.rng.permutation(self.len):` iterates over nodes in a random order during the coloring process. This randomness prevents biases introduced by traversing nodes in a specific order and contributes to the algorithm's exploration capabilities.
+
+### Collisions Logging
+
+The algorithm maintains logs of collisions and temperature at each iteration. These logs are crucial for analyzing the algorithm's progress and performance. The `self.collisionsLog` and `self.temperatureLog` arrays store collision counts and temperatures, respectively.
+
+## Conclusion
+
+Understanding the local search methods and unique mechanisms implemented in the GraphColoring algorithm provides insights into its adaptability and effectiveness in solving graph coloring problems. Regularly reviewing this documentation will aid in recalling the algorithm's intricacies and facilitate future enhancements or modifications.

@@ -1,0 +1,2 @@
+Help & showcase how Dijkstra works:
+https://math.stackexchange.com/questions/2102913/what-to-do-if-2-weights-are-equal-in-dijkstra-shortest-path-algorithm
